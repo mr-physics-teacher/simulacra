@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-Level Physics CRO Simulator</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --panel: #222523;
+            --panel-border: #444;
+            --screen-bg: #0a1f0f;
+            --grid: #1b4f26;
+            --trace: #00ff41;
+            --text: #e0e0e0;
+            --accent: #4a90e2;
+            --knob-bg: #d1d5d2;
+            --knob-border: #888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 40px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:hover { background: #555; }
+        button.active-mode { background: var(--accent); border-color: #7ab4f5; }
+        .btn-action { background: #2e7d32; border-color: #4caf50; }
+        .btn-action:hover { background: #388e3c; }
+
+        .oscilloscope-body {
+            background-color: var(--panel);
+            border: 3px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            gap: 30px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+            max-width: 1200px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* LEFT SIDE: Screen & Inputs */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .screen-bezel {
+            background: #111;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px black;
+        }
+
+        canvas {
+            display: block;
+            background: var(--screen-bg);
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,1);
+            cursor: crosshair;
+        }
+
+        .inputs-row {
+            display: flex;
+            gap: 40px;
+            padding: 10px;
+            background: #2a2e2b;
+            border-radius: 8px;
+            border: 1px solid #333;
+            align-items: center;
+        }
+
+        .bnc-connector {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #ddd 20%, #888 30%, #555 60%, #222 100%);
+            border-radius: 50%;
+            border: 2px solid #111;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.1s;
+        }
+
+        .bnc-connector:hover { transform: scale(1.05); }
+        
+        .bnc-label {
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        .probe-wire {
+            position: absolute;
+            bottom: -30px;
+            width: 8px;
+            height: 40px;
+            background: #444;
+            display: none;
+            border-radius: 4px;
+        }
+
+        .probe-connected .probe-wire { display: block; }
+        .probe-connected { box-shadow: 0 0 15px var(--trace); }
+
+        /* RIGHT SIDE: Controls */
+        .right-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background: #2f3431;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        .control-section {
+            background: #242825;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #3a3f3c;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .control-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #88c0d0;
+            text-transform: uppercase;
+            text-align: center;
+            border-bottom: 1px solid #444;
+            width: 100%;
+            padding-bottom: 5px;
+        }
+
+        /* Knobs UI */
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .knob-label {
+            font-size: 11px;
+            color: #aaa;
+            margin-bottom: 5px;
+            text-align: center;
+            min-height: 26px;
+        }
+
+        .knob-interactive-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .knob-btn {
+            background: #333;
+            color: #ccc;
+            border: 1px solid #555;
+            border-radius: 3px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            padding: 0;
+            user-select: none;
+        }
+
+        .knob-btn:hover { background: #555; color: white; }
+        .knob-btn:active { background: #222; }
+
+        .knob-value {
+            font-size: 12px;
+            font-family: monospace;
+            color: var(--trace);
+            background: #111;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 8px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .dial-outer {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--knob-bg);
+            border: 2px solid var(--knob-border);
+            position: relative;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5), inset 0 2px 5px white;
+        }
+
+        .dial-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: absolute;
+            transform: rotate(0deg);
+            transition: transform 0.1s ease-out;
+        }
+
+        .dial-tick {
+            width: 4px;
+            height: 12px;
+            background: #222;
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        /* Switches */
+        .switch-container { margin-bottom: 15px; text-align: center; width: 100%; }
+        select {
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Pedagogy Overlays */
+        .info-panel {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 800px) {
+            .info-panel { grid-template-columns: 1fr; }
+        }
+
+        .box {
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .diagnostic-box { background: #321; border: 1px solid #a55; }
+        .tutorial-box { background: #133; border: 1px solid #4aa; display: none; }
+        .generator-box { background: #222; border: 1px solid #555; }
+        
+        .tutorial-box.active { display: block; }
+        .diagnostic-list { margin: 10px 0 0 -15px; font-size: 14px; color: #fcc; }
+        
+        .gen-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;}
+        .hidden { display: none !important; }
+
+        .reveal-btn { background: #8a2be2; width: 100%; margin-top: 10px; }
+        .reveal-btn:hover { background: #9b4dca; }
+        .scramble-btn { background: #d84315; width: 100%; margin-top: 10px; }
+        .scramble-btn:hover { background: #e64a19; }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #222; padding: 25px; border-radius: 8px;
+            max-width: 700px; width: 90%; color: #eee;
+            border: 1px solid var(--accent);
+            max-height: 80vh; overflow-y: auto;
+        }
+        .modal-content h3 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px;}
+        .modal-content h4 { color: #88c0d0; margin-bottom: 5px; }
+        .modal-close { float: right; background: #555; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>PAG Tool: Cathode Ray Oscilloscope</h2>
+
+    <div class="header-controls">
+        <button id="btnIntro">Walkthrough Setup</button>
+        <button id="btnInvestigate" class="active-mode">Investigation Mode</button>
+        <button id="btnFree">Free Mode</button>
+        <button id="btnTheory" style="margin-left: 20px; background: #005f73;">Theory & Operation Guide</button>
+    </div>
+
+    <div class="oscilloscope-body">
+        <!-- LEFT: Screen and Inputs -->
+        <div class="left-panel">
+            <div class="screen-bezel">
+                <canvas id="scopeCanvas" width="600" height="400"></canvas>
+            </div>
+            
+            <div class="inputs-row">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <div class="bnc-connector" id="probeInput" title="Click to connect/disconnect probe">
+                        <div class="probe-wire"></div>
+                    </div>
+                    <div class="bnc-label">CH 1<br>(Click to Connect)</div>
+                </div>
+                <div style="color: #666; font-size: 13px;">
+                    <strong>Tip:</strong> Ensure signal generator/mic probe is connected to CH1.
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Controls -->
+        <div class="right-panel">
+            
+            <!-- VERTICAL (CH1) -->
+            <div class="control-section">
+                <h3>Vertical</h3>
+                
+                <div class="knob-container">
+                    <div class="knob-label">VOLTS/DIV<br>(Y-Gain)</div>
+                    <div class="knob-interactive-area">
+                        <button class="knob-btn" id="btnVoltsDown">-</button>
+                        <div class="dial-outer" id="dialVolts">
+                            <div class="dial-inner"><div class="dial-tick"></div></div>
+                        </div>
+                        <button class="knob-btn" id="btnVoltsUp">+</button>
+                    </div>
+                    <div class="knob-value" id="valVolts">1 V</div>
+                </div>
+
+                <div class="knob-container">
+                    <div class="knob-label">Y-POSITION</div>
+                    <div class="knob-interactive-area">
+                        <button class="knob-btn" id="btnYPosDown">-</button>
+                        <div class="dial-outer" id="dialYPos">
+                            <div class="dial-inner"><div class="dial-tick"></div></div>
+                        </div>
+                        <button class="knob-btn" id="btnYPosUp">+</button>
+                    </div>
+                    <div class="knob-value" id="valYPos">0.0</div>
+                </div>
+
+                <div class="switch-container">
+                    <div class="knob-label" style="min-height:auto;">COUPLING</div>
+                    <select id="switchCoupling">
+                        <option value="DC" selected>DC</option>
+                        <option value="AC">AC</option>
+                        <option value="GND">GND</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- HORIZONTAL & TRIGGER -->
+            <div class="control-section">
+                <h3>Horizontal & Trig</h3>
+                
+                <div class="knob-container">
+                    <div class="knob-label">SEC/DIV<br>(Timebase)</div>
+                    <div class="knob-interactive-area">
+                        <button class="knob-btn" id="btnTimeDown">-</button>
+                        <div class="dial-outer" id="dialTime">
+                            <div class="dial-inner"><div class="dial-tick"></div></div>
+                        </div>
+                        <button class="knob-btn" id="btnTimeUp">+</button>
+                    </div>
+                    <div class="knob-value" id="valTime">1 ms</div>
+                </div>
+
+                <div class="knob-container">
+                    <div class="knob-label">TRIGGER LEVEL</div>
+                    <div class="knob-interactive-area">
+                        <button class="knob-btn" id="btnTrigDown">-</button>
+                        <div class="dial-outer" id="dialTrig">
+                            <div class="dial-inner"><div class="dial-tick"></div></div>
+                        </div>
+                        <button class="knob-btn" id="btnTrigUp">+</button>
+                    </div>
+                    <div class="knob-value" id="valTrig">0.0 V</div>
+                </div>
+                
+                <div class="switch-container">
+                    <button id="powerBtn" style="background:#5c0000; color:white; width: 100%; margin-top: 10px;">POWER OFF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedagogy & Input Panels -->
+    <div class="info-panel">
+        <div class="box diagnostic-box">
+            <h3 style="margin-top:0; color:#ff8a8a;">Live Diagnostics</h3>
+            <ul class="diagnostic-list" id="warningsList">
+                <li>Power is currently OFF.</li>
+            </ul>
+        </div>
+
+        <div id="contextPanel">
+            <!-- Walkthrough Panel -->
+            <div class="box tutorial-box" id="tutorialBox">
+                <h3 style="margin-top:0; color:#88f;">Walkthrough Guide</h3>
+                <p id="tutorialText" style="font-size: 15px; line-height: 1.4;">Welcome!</p>
+                <div id="walkthroughControls" class="hidden" style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn-action" onclick="startWalkthrough()">Restart Walkthrough</button>
+                    <button class="btn-action" onclick="setMode('investigate')">Go to Investigation</button>
+                </div>
+                <div id="walkHelpText" style="font-size:12px; color:#aaa; margin-top:10px;">(Follow the instructions above to automatically advance)</div>
+            </div>
+
+            <!-- Generator / Investigate Panel -->
+            <div class="box generator-box" id="genBox">
+                <h3 style="margin-top:0; color:#aaa;" id="genTitle">Signal Generator (Investigation)</h3>
+                
+                <div id="investigateUi">
+                    <p style="font-size: 14px; color: #ddd; margin-top:0;">An unknown signal is connected. Dials are scrambled. Find the signal, stabilize it, and calculate V(p-p) and Frequency.</p>
+                    <button id="btnNewSignal" class="scramble-btn">New Signal & Scramble Dials</button>
+                    <button id="btnReveal" class="reveal-btn">Reveal Actual Values</button>
+                    <div id="revealText" class="hidden" style="margin-top:10px; font-weight:bold; color:var(--trace); background:#111; padding:10px; border-radius:5px;"></div>
+                </div>
+
+                <div id="freeUi" class="hidden">
+                    <div style="margin-bottom: 12px; background: #333; padding: 8px; border-radius: 4px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #88c0d0;">Input Signal Source:</label>
+                        <select id="sourceSelect" style="margin-top: 5px;">
+                            <option value="generator" selected>Internal Signal Generator</option>
+                            <option value="mic">Device Microphone (Live Audio)</option>
+                        </select>
+                    </div>
+
+                    <!-- Generator Controls -->
+                    <div id="generatorControls" class="gen-controls">
+                        <div>
+                            <label style="font-size: 12px;">Waveform</label><br>
+                            <select id="sigType" style="width:100%;">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px;">Freq: <span id="dispFreq">1000 Hz</span></label><br>
+                            <input type="range" id="sigFreq" min="10" max="100000" step="10" value="1000" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px;">Amp (Peak): <span id="dispAmp">2.0 V</span></label><br>
+                            <input type="range" id="sigAmp" min="0.1" max="20" step="0.1" value="2" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px;">DC Offset: <span id="dispOff">0.0 V</span></label><br>
+                            <input type="range" id="sigOff" min="-10" max="10" step="0.1" value="0" style="width:100%;">
+                        </div>
+                    </div>
+
+                    <!-- Microphone Controls -->
+                    <div id="micControls" class="hidden" style="text-align: center; padding: 10px;">
+                        <button id="btnEnableMic" class="btn-action" style="width: 100%;">Enable Microphone Access</button>
+                        <p id="micStatus" style="font-size: 12px; color: #aaa; margin-top: 8px;">Click button above to allow microphone input.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theory Modal -->
+    <div class="modal-overlay" id="theoryModal">
+        <div class="modal-content">
+            <button class="modal-close" id="btnCloseTheory">X</button>
+            <h3>Oscilloscope Theory & Operation</h3>
+            <p>An oscilloscope (CRO) displays voltage against time. It allows you to visualize electronic signals, measure their amplitude, and calculate their frequency.</p>
+            
+            <h4>1. Vertical Controls (VOLTS/DIV or Y-Gain)</h4>
+            <p style="font-size: 14px; color:#ccc;">Scales the Y-axis. If set to 2 V/div, every major grid square vertically represents 2 Volts. <strong>Use this to:</strong> Make the wave as large as possible on the screen without going off the top or bottom edges (clipping) to minimize percentage uncertainty in your reading.</p>
+            
+            <h4>2. Horizontal Controls (SEC/DIV or Timebase)</h4>
+            <p style="font-size: 14px; color:#ccc;">Scales the X-axis. If set to 1 ms/div, every major grid square horizontally represents 1 millisecond. <strong>Use this to:</strong> Stretch or squash the wave horizontally. To measure Time Period accurately, adjust this until you see between 1 and 3 complete waves on the screen.</p>
+            
+            <h4>3. Trigger Level</h4>
+            <p style="font-size: 14px; color:#ccc;">The oscilloscope draws traces left to right repeatedly. If it draws randomly, the wave looks like a flickering mess. The <strong>Trigger</strong> tells the scope to wait and start drawing ONLY when the voltage crosses a specific level. <strong>Use this to:</strong> Stabilize a scrolling or flickering wave.</p>
+            
+            <h4>4. Coupling (AC / DC / GND)</h4>
+            <p style="font-size: 14px; color:#ccc;">
+                <strong>GND:</strong> Disconnects the input internally and shows a flat line at 0V. Useful for finding where your 'zero' line is.<br>
+                <strong>DC:</strong> Shows exactly what is coming in, including both the Alternating Current (AC) wave and any steady Direct Current (DC) offset pushing it up or down.<br>
+                <strong>AC:</strong> Passes the signal through a capacitor, blocking any DC offset. Useful if a tiny ripple is sitting on top of a huge DC voltage and you only want to study the ripple.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // --- Core State Variables ---
+        let isPowerOn = false;
+        let isProbeConnected = false;
+        let currentMode = 'investigate'; 
+        let inputSource = 'generator'; // 'generator' or 'mic'
+        
+        let signal = { type: 'sine', freq: 1000, amp: 2, offset: 0 };
+        
+        // Scope Settings
+        let s_voltsDiv = 1;      
+        let s_timeDiv = 0.001;   
+        let s_yPos = 0;          
+        let s_xPos = 0;          
+        let s_trigLvl = 0;       
+        let s_coupling = 'DC';
+
+        // Audio API Mic Variables
+        let audioCtx = null;
+        let micStream = null;
+        let analyser = null;
+        let micDataArray = null;
+        let isMicActive = false;
+
+        // --- Hardware Arrays ---
+        const voltsArray = [20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
+        const timeArray = [0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001, 0.0005, 0.0002, 0.0001, 0.00005, 0.00002, 0.00001];
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('scopeCanvas');
+        const ctx = canvas.getContext('2d');
+        const warningsList = document.getElementById('warningsList');
+        const probeInput = document.getElementById('probeInput');
+        const switchCoupling = document.getElementById('switchCoupling');
+        
+        // --- Theory Modal Logic ---
+        document.getElementById('btnTheory').onclick = () => document.getElementById('theoryModal').style.display = 'flex';
+        document.getElementById('btnCloseTheory').onclick = () => document.getElementById('theoryModal').style.display = 'none';
+
+        // --- Dial/Knob Class for UX ---
+        class RotaryKnob {
+            constructor(id, valDisplayId, btnDownId, btnUpId, isDiscrete, dataArray, min, max, unit, formatFunc) {
+                this.el = document.getElementById(id);
+                this.inner = this.el.querySelector('.dial-inner');
+                this.valDisp = document.getElementById(valDisplayId);
+                this.btnDown = document.getElementById(btnDownId);
+                this.btnUp = document.getElementById(btnUpId);
+                
+                this.isDiscrete = isDiscrete;
+                this.data = dataArray;
+                this.min = min;
+                this.max = max;
+                this.unit = unit;
+                this.formatFunc = formatFunc;
+                
+                if(isDiscrete) this.currentIdx = Math.floor(dataArray.length/2);
+                else this.currentVal = 0;
+
+                this.setupEvents();
+                this.updateVisual();
+            }
+
+            setupEvents() {
+                this.btnDown.onclick = () => { this.step(-1); };
+                this.btnUp.onclick = () => { this.step(1); };
+
+                this.el.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.step(e.deltaY > 0 ? -1 : 1);
+                });
+            }
+
+            step(direction) {
+                if(this.isDiscrete) {
+                    this.currentIdx += direction;
+                    if(this.currentIdx < 0) this.currentIdx = 0;
+                    if(this.currentIdx >= this.data.length) this.currentIdx = this.data.length - 1;
+                } else {
+                    const stepSize = (this.max - this.min) / 40; 
+                    this.currentVal += direction * stepSize;
+                    if(this.currentVal < this.min) this.currentVal = this.min;
+                    if(this.currentVal > this.max) this.currentVal = this.max;
+                }
+                this.updateVisual();
+                checkWalkthroughProgress(); 
+            }
+
+            updateVisual() {
+                let deg, displayStr;
+                if(this.isDiscrete) {
+                    const fraction = this.currentIdx / (this.data.length - 1);
+                    deg = -120 + (fraction * 240);
+                    displayStr = this.formatFunc ? this.formatFunc(this.data[this.currentIdx]) : this.data[this.currentIdx] + this.unit;
+                } else {
+                    const fraction = (this.currentVal - this.min) / (this.max - this.min);
+                    deg = -150 + (fraction * 300);
+                    displayStr = this.currentVal.toFixed(1) + this.unit;
+                }
+                
+                this.inner.style.transform = `rotate(${deg}deg)`;
+                this.valDisp.innerText = displayStr;
+
+                if(this.el.id === 'dialVolts') s_voltsDiv = this.data[this.currentIdx];
+                if(this.el.id === 'dialTime') s_timeDiv = this.data[this.currentIdx];
+                if(this.el.id === 'dialYPos') s_yPos = this.currentVal;
+                if(this.el.id === 'dialTrig') s_trigLvl = this.currentVal;
+            }
+
+            setValue(val) {
+                if(this.isDiscrete) {
+                    let idx = this.data.indexOf(val);
+                    if(idx !== -1) this.currentIdx = idx;
+                } else {
+                    this.currentVal = Math.max(this.min, Math.min(this.max, val));
+                }
+                this.updateVisual();
+            }
+
+            randomize() {
+                if(this.isDiscrete) {
+                    this.currentIdx = Math.floor(Math.random() * this.data.length);
+                } else {
+                    this.currentVal = this.min + (Math.random() * (this.max - this.min));
+                }
+                this.updateVisual();
+            }
+        }
+
+        const formatTime = (v) => v >= 0.1 ? (v*1000).toFixed(0) + ' ms' : 
+                                v >= 0.001 ? (v*1000).toFixed(1) + ' ms' : (v*1000000).toFixed(0) + ' µs';
+        
+        // Initialize Knobs
+        const knobVolts = new RotaryKnob('dialVolts', 'valVolts', 'btnVoltsDown', 'btnVoltsUp', true, voltsArray, 0, 0, ' V', (v) => v + ' V');
+        const knobTime = new RotaryKnob('dialTime', 'valTime', 'btnTimeDown', 'btnTimeUp', true, timeArray, 0, 0, '', formatTime);
+        const knobYPos = new RotaryKnob('dialYPos', 'valYPos', 'btnYPosDown', 'btnYPosUp', false, null, -4, 4, '');
+        const knobTrig = new RotaryKnob('dialTrig', 'valTrig', 'btnTrigDown', 'btnTrigUp', false, null, -10, 10, ' V');
+
+        // --- Hardware Interactions ---
+        document.getElementById('powerBtn').onclick = function() {
+            isPowerOn = !isPowerOn;
+            this.innerText = isPowerOn ? 'POWER ON' : 'POWER OFF';
+            this.style.background = isPowerOn ? '#007024' : '#5c0000';
+            checkWalkthroughProgress();
+        };
+
+        probeInput.onclick = () => {
+            isProbeConnected = !isProbeConnected;
+            probeInput.classList.toggle('probe-connected');
+            checkWalkthroughProgress();
+        };
+
+        switchCoupling.onchange = (e) => { s_coupling = e.target.value; checkWalkthroughProgress(); };
+
+        // --- Modes Logic ---
+        const btnIntro = document.getElementById('btnIntro');
+        const btnInvestigate = document.getElementById('btnInvestigate');
+        const btnFree = document.getElementById('btnFree');
+
+        function setMode(mode) {
+            currentMode = mode;
+            [btnIntro, btnInvestigate, btnFree].forEach(b => b.classList.remove('active-mode'));
+            document.getElementById('tutorialBox').classList.remove('active');
+            document.getElementById('genBox').style.display = 'block';
+            document.getElementById('investigateUi').classList.add('hidden');
+            document.getElementById('freeUi').classList.add('hidden');
+            document.getElementById('revealText').classList.add('hidden');
+
+            if(mode === 'intro') {
+                btnIntro.classList.add('active-mode');
+                document.getElementById('tutorialBox').classList.add('active');
+                document.getElementById('genBox').style.display = 'none';
+                inputSource = 'generator';
+                startWalkthrough();
+            } else if (mode === 'investigate') {
+                btnInvestigate.classList.add('active-mode');
+                document.getElementById('investigateUi').classList.remove('hidden');
+                document.getElementById('genTitle').innerText = "Signal Generator (Investigation)";
+                inputSource = 'generator';
+                generateInvestigationChallenge();
+            } else if (mode === 'free') {
+                btnFree.classList.add('active-mode');
+                document.getElementById('freeUi').classList.remove('hidden');
+                document.getElementById('genTitle').innerText = "Signal Source (Free Mode)";
+            }
+        }
+
+        btnIntro.onclick = () => setMode('intro');
+        btnInvestigate.onclick = () => setMode('investigate');
+        btnFree.onclick = () => setMode('free');
+
+        // Generator / Source Controls
+        document.getElementById('sourceSelect').onchange = (e) => {
+            inputSource = e.target.value;
+            if(inputSource === 'generator') {
+                document.getElementById('generatorControls').classList.remove('hidden');
+                document.getElementById('micControls').classList.add('hidden');
+            } else {
+                document.getElementById('generatorControls').classList.add('hidden');
+                document.getElementById('micControls').classList.remove('hidden');
+            }
+        };
+
+        document.getElementById('btnEnableMic').onclick = async () => {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioCtx.createMediaStreamSource(micStream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                source.connect(analyser);
+                micDataArray = new Float32Array(analyser.fftSize);
+                isMicActive = true;
+                document.getElementById('micStatus').innerText = "Microphone Active! Speak, whistle or hum near mic.";
+                document.getElementById('micStatus').style.color = "var(--trace)";
+            } catch (err) {
+                alert("Microphone Access Error: " + err.message + "\n\nNote: If embedded inside Google Sites directly, Google Sites blocks microphone access within its sandbox iframe. Open the tool directly in a browser tab or host via GitHub Pages.");
+                document.getElementById('micStatus').innerText = "Microphone blocked or unavailable.";
+                document.getElementById('micStatus').style.color = "#f88";
+            }
+        };
+
+        document.getElementById('sigType').onchange = e => signal.type = e.target.value;
+        ['Freq', 'Amp', 'Off'].forEach(id => {
+            document.getElementById('sig'+id).oninput = e => {
+                let v = parseFloat(e.target.value);
+                if(id==='Freq') { signal.freq = v; document.getElementById('disp'+id).innerText = v + " Hz"; }
+                if(id==='Amp') { signal.amp = v; document.getElementById('disp'+id).innerText = v.toFixed(1) + " V"; }
+                if(id==='Off') { signal.offset = v; document.getElementById('disp'+id).innerText = v.toFixed(1) + " V"; }
+            };
+        });
+
+        document.getElementById('btnNewSignal').onclick = () => generateInvestigationChallenge();
+
+        document.getElementById('btnReveal').onclick = () => {
+            document.getElementById('revealText').innerText = 
+                `Actual Input:\nFrequency = ${signal.freq.toFixed(0)} Hz\nPeak Voltage = ${signal.amp.toFixed(2)} V\n(Peak-to-Peak = ${(signal.amp*2).toFixed(2)} V)`;
+            document.getElementById('revealText').classList.remove('hidden');
+        };
+
+        function generateInvestigationChallenge() {
+            document.getElementById('revealText').classList.add('hidden');
+            
+            const fExp = 1 + (Math.random() * 4); 
+            signal.freq = Math.round(Math.pow(10, fExp));
+            
+            const aExp = -1 + (Math.random() * 2.17);
+            signal.amp = parseFloat((Math.pow(10, aExp)).toFixed(2));
+            
+            signal.offset = (Math.random() > 0.7) ? (Math.random() * 4 - 2) : 0;
+            signal.type = 'sine';
+
+            knobVolts.randomize();
+            knobTime.randomize();
+            knobYPos.randomize();
+            knobTrig.randomize();
+            
+            const couplings = ['DC', 'AC', 'GND'];
+            switchCoupling.value = couplings[Math.floor(Math.random()*3)];
+            s_coupling = switchCoupling.value;
+        }
+
+        // --- Walkthrough State Machine ---
+        let walkStep = 0;
+        const walkData = [
+            { txt: "Step 1: The Oscilloscope is off. Click the red POWER OFF button to turn it on.", cond: () => isPowerOn },
+            { txt: "Step 2: We need a signal. Click the CH1 BNC connector (below the screen) to connect the probe wire.", cond: () => isProbeConnected },
+            { txt: "Step 3: A flat line! The coupling is on GND. Switch COUPLING to DC to let the signal through.", cond: () => s_coupling !== 'GND' },
+            { txt: "Step 4: The wave might be off-screen. Adjust the Y-POSITION dial (- or +) to center the trace near 0.0.", cond: () => Math.abs(s_yPos) < 0.5 },
+            { txt: "Step 5: Decrease VOLTS/DIV (Y-Gain) to stretch the wave vertically as large as possible without going off the edges (clipping).", cond: () => (signal.amp / s_voltsDiv) >= 2 && (signal.amp / s_voltsDiv) <= 4 },
+            { txt: "Step 6: The wave is flickering/scrolling! Adjust the TRIGGER LEVEL until it intersects the wave height to lock it in place.", cond: () => window.isTriggerLocked === true },
+            { txt: "Step 7: Adjust SEC/DIV (Timebase) until you see between 1 and 3 full complete waves on the screen for accurate measuring.", cond: () => { const w = (s_timeDiv * 10) * signal.freq; return w >= 1 && w <= 3.5; } },
+            { txt: "Excellent! The oscilloscope is calibrated. You can now use the graticule to measure. Where would you like to go next?", cond: () => false, isEnd: true }
+        ];
+
+        function startWalkthrough() {
+            isPowerOn = false; document.getElementById('powerBtn').innerText = 'POWER OFF'; document.getElementById('powerBtn').style.background = '#5c0000';
+            if(isProbeConnected) probeInput.click();
+            switchCoupling.value = 'GND'; s_coupling = 'GND';
+            knobVolts.setValue(10);
+            knobTime.setValue(0.01);
+            knobYPos.setValue(-3);
+            knobTrig.setValue(8);
+            signal = { type: 'sine', freq: 500, amp: 2, offset: 0 };
+            
+            walkStep = 0;
+            document.getElementById('walkthroughControls').classList.add('hidden');
+            document.getElementById('walkHelpText').style.display = 'block';
+            updateWalkUI();
+        }
+
+        function checkWalkthroughProgress() {
+            if(currentMode !== 'intro' || walkStep >= walkData.length - 1) return;
+            if(walkData[walkStep].cond()) {
+                walkStep++;
+                updateWalkUI();
+            }
+        }
+
+        function updateWalkUI() {
+            document.getElementById('tutorialText').innerHTML = `<strong>${walkData[walkStep].txt}</strong>`;
+            if(walkData[walkStep].isEnd) {
+                document.getElementById('walkthroughControls').classList.remove('hidden');
+                document.getElementById('walkHelpText').style.display = 'none';
+            }
+        }
+
+        // --- Render Engine ---
+        const gridCols = 10, gridRows = 8;
+        const ppdX = canvas.width / gridCols;
+        const ppdY = canvas.height / gridRows;
+
+        function getVoltageAtTime(t) {
+            if(!isProbeConnected || s_coupling === 'GND') return 0;
+            
+            const period = 1 / signal.freq;
+            const phase = (t % period) / period;
+            let v = signal.type === 'sine' ? signal.amp * Math.sin(2 * Math.PI * phase) : 
+                    (phase < 0.5 ? signal.amp : -signal.amp);
+
+            if(s_coupling === 'DC') v += signal.offset;
+            return v;
+        }
+
+        function draw() {
+            ctx.fillStyle = 'var(--screen-bg)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'var(--grid)'; ctx.lineWidth = 1;
+            
+            for(let i=0; i<=gridCols; i++) { ctx.beginPath(); ctx.moveTo(i*ppdX, 0); ctx.lineTo(i*ppdX, canvas.height); ctx.stroke(); }
+            for(let i=0; i<=gridRows; i++) { ctx.beginPath(); ctx.moveTo(0, i*ppdY); ctx.lineTo(canvas.width, i*ppdY); ctx.stroke(); }
+            
+            ctx.strokeStyle = '#2d7a3d'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke();
+            
+            ctx.beginPath();
+            for(let i=0; i<canvas.width; i+=(ppdX/5)) { ctx.moveTo(i, canvas.height/2 - 3); ctx.lineTo(i, canvas.height/2 + 3); }
+            for(let i=0; i<canvas.height; i+=(ppdY/5)) { ctx.moveTo(canvas.width/2 - 3, i); ctx.lineTo(canvas.width/2 + 3, i); }
+            ctx.stroke();
+
+            if(isPowerOn) {
+                let warnings = [];
+                const totalTime = s_timeDiv * gridCols;
+                
+                if(!isProbeConnected) warnings.push("Probe disconnected. Connect CH1 to read signal.");
+                else if (s_coupling === 'GND') warnings.push("Coupling on GND. Input grounded (0V).");
+
+                ctx.strokeStyle = 'var(--trace)';
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 10; ctx.shadowColor = 'var(--trace)';
+                ctx.beginPath();
+
+                if (inputSource === 'mic' && isMicActive && analyser && isProbeConnected && s_coupling !== 'GND') {
+                    // LIVE MICROPHONE RENDERING
+                    analyser.getFloatTimeDomainData(micDataArray);
+                    let clipping = false;
+                    for (let px = 0; px <= canvas.width; px += 2) {
+                        let sampleIdx = Math.floor((px / canvas.width) * micDataArray.length);
+                        let audioVal = micDataArray[sampleIdx] || 0; // -1.0 to 1.0
+                        let v = audioVal * 5.0; // scale audio to ~5V peak
+                        if (s_coupling === 'AC') v = audioVal * 5.0; // AC removes DC offset
+
+                        let py = (canvas.height / 2) - (((v / s_voltsDiv) + s_yPos) * ppdY);
+                        if(py < 0 || py > canvas.height) clipping = true;
+                        px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                    }
+                    if(clipping) warnings.push("Audio waveform clipping! Increase Volts/Div.");
+                    window.isTriggerLocked = true;
+                } else {
+                    // GENERATOR SIGNAL RENDERING
+                    let drawTime = performance.now() / 1000;
+                    window.isTriggerLocked = false;
+                    
+                    if(isProbeConnected && s_coupling !== 'GND') {
+                        const searchRes = 1 / (signal.freq * 20);
+                        let testTime = 0, prevV = getVoltageAtTime(testTime);
+                        for(let i=1; i<200; i++) {
+                            let currTime = testTime + (i * searchRes);
+                            let currV = getVoltageAtTime(currTime);
+                            if(prevV <= s_trigLvl && currV >= s_trigLvl) {
+                                let frac = Math.abs((s_trigLvl - prevV) / (currV - prevV));
+                                drawTime = testTime + ((i - 1 + frac) * searchRes);
+                                window.isTriggerLocked = true;
+                                break;
+                            }
+                            prevV = currV;
+                        }
+                    }
+
+                    if(!window.isTriggerLocked && isProbeConnected && s_coupling !== 'GND') 
+                        warnings.push("Trigger not catching! Trace rolling. Adjust Trigger Level.");
+
+                    if(s_coupling === 'DC' && Math.abs(signal.offset) > (s_voltsDiv * 0.2)) {
+                        warnings.push("Wave is shifted vertically due to a DC Offset. Switch Coupling to AC to center it if you only want to measure the AC component.");
+                    }
+
+                    let clipping = false;
+                    for (let px = 0; px <= canvas.width; px += 2) {
+                        let t = drawTime + ((px / canvas.width) * totalTime);
+                        if(!window.isTriggerLocked) t += (performance.now() / 1000) * 0.1;
+
+                        let v = getVoltageAtTime(t);
+                        let py = (canvas.height / 2) - (((v / s_voltsDiv) + s_yPos) * ppdY);
+                        
+                        if(py < 0 || py > canvas.height) clipping = true;
+                        px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                    }
+                    if(clipping && isProbeConnected) warnings.push("Waveform clipping! Increase Volts/Div or adjust Y-Position.");
+                    
+                    const waves = totalTime * signal.freq;
+                    if(waves > 20 && isProbeConnected && s_coupling!=='GND') warnings.push("Timebase too slow: Too many waves to read accurately.");
+                    if(waves < 0.5 && isProbeConnected && s_coupling!=='GND') warnings.push("Timebase too fast: Cannot see a full wave.");
+                }
+
+                ctx.stroke(); ctx.shadowBlur = 0;
+
+                warningsList.innerHTML = warnings.length === 0 ? "<li style='color:#afa'>Trace stable. Setup optimal.</li>" : warnings.map(w => `<li>${w}</li>`).join('');
+                
+                checkWalkthroughProgress();
+            } else {
+                warningsList.innerHTML = "<li>Power is OFF.</li>";
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Init
+        setMode('investigate');
+        requestAnimationFrame(draw);
+
+    </script>
+</body>
+</html>
